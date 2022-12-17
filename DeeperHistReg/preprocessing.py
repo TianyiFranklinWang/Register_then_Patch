@@ -5,7 +5,7 @@ import numpy as np
 import torch as tc
 import cv2
 
-import utils as u
+import DeeperHistReg.utils as u
 
 ### General Preprocessing ###
 

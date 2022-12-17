@@ -10,8 +10,8 @@ import SimpleITK as sitk
 import PIL
 
 # import paths as p
-import utils_np as unp
-import utils_tc as utc
+import DeeperHistReg.utils_np as unp
+import DeeperHistReg.utils_tc as utc
 import tiffslide as openslide
 # try:
 #     OPENSLIDE_PATH = p.openslide_path

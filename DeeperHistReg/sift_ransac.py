@@ -82,7 +82,8 @@ def sift_ransac(source, target, params):
     return final_transform
 
 def descriptor_calculation(source, target):
-    sift = cv2.xfeatures2d.SIFT_create(4096)
+    # sift = cv2.xfeatures2d.SIFT_create(4096)
+    sift = cv2.SIFT_create(4096)
     source_keypoints, source_descriptors = sift.detectAndCompute(source, None)
     target_keypoints, target_descriptors = sift.detectAndCompute(target, None)
     return source_keypoints, source_descriptors, target_keypoints, target_descriptors

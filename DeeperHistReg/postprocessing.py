@@ -1,7 +1,7 @@
 import sys
 current_file = sys.modules[__name__]
 
-import utils as u
+import DeeperHistReg.utils as u
 
 def target_landmarks_postprocessing(target_landmarks, params):
     late_resample = params['late_resample']

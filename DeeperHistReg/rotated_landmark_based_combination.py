@@ -24,7 +24,8 @@ def rotated_landmark_based_combination(source, target, params):
     keypoint_size = params['keypoint_size']
     resampled_source, resampled_target = u.initial_resampling(source, target, resolution) 
 
-    sift = cv2.xfeatures2d.SIFT_create(num_features) #256
+    # sift = cv2.xfeatures2d.SIFT_create(num_features) #256
+    sift = cv2.SIFT_create(num_features)
     keypoints, target_descriptors = sift.detectAndCompute((resampled_target[0, 0, :, :].detach().cpu().numpy() * 255).astype(np.uint8), None)
     if echo:
         print(f"Number of evaluation keypoints: {len(keypoints)}")

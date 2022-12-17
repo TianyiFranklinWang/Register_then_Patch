@@ -1,5 +1,6 @@
-import sys
 import os
+import sys
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "."))
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -13,35 +14,41 @@ import utils_tc as utc
 
 import superglue as sg
 
+
 def superpoint_superglue(source, target, params):
     echo = params['echo']
     resolution = params['registration_size']
 
-    resampled_source, resampled_target = u.initial_resampling(source, target, resolution)   
+    resampled_source, resampled_target = u.initial_resampling(source, target, resolution)
     if echo:
         print(f"Resampled source size: {resampled_source.size()}")
         print(f"Resampled target size: {resampled_target.size()}")
 
     src = u.tensor_to_image(resampled_source)[:, :, 0]
-    trg  = u.tensor_to_image(resampled_target)[:, :, 0]
+    trg = u.tensor_to_image(resampled_target)[:, :, 0]
 
     transform = perform_registration(src, trg, params)
-    final_transform = utc.affine2theta(transform.astype(np.float64), (resampled_source.size(2), resampled_source.size(3))).type_as(source).unsqueeze(0)
+    final_transform = utc.affine2theta(transform.astype(np.float64),
+                                       (resampled_source.size(2), resampled_source.size(3))).type_as(source).unsqueeze(
+        0)
     if echo:
         print(f"Calculacted transform: {final_transform}")
     return final_transform
 
+
 def perform_registration(source, target, params):
-    default_params = {'superpoint_weights_path': "./Models/superpoint_v1.pth", 'superglue_weights_path' : "./Models/superglue_outdoor.pth",
-     'nms_radius': 4, 'keypoint_threshold': 0.005, 'max_keypoints': 3000, 'sinkhorn_iterations': 30, 'match_threshold': 0.3, 'show': False, 'echo': True,
-     'transform_type': "affine", 'device': "cuda:0"}
+    default_params = {'superpoint_weights_path': "./DeeperHistReg/Models/superpoint_v1.pth",
+                      'superglue_weights_path': "./DeeperHistReg/Models/superglue_outdoor.pth",
+                      'nms_radius': 4, 'keypoint_threshold': 0.005, 'max_keypoints': 3000, 'sinkhorn_iterations': 30,
+                      'match_threshold': 0.3, 'show': False, 'echo': True,
+                      'transform_type': "affine", 'device': "cuda:0"}
     params = {**default_params, **params}
     superpoint_weights_path = params['superpoint_weights_path']
     superglue_weights_path = params['superglue_weights_path']
     nms_radius = params['nms_radius']
     keypoint_threshold = params['keypoint_threshold']
     max_keypoints = params['max_keypoints']
-    superglue = 'outdoor' # artifact
+    superglue = 'outdoor'  # artifact
     sinkhorn_iterations = params['sinkhorn_iterations']
     match_threshold = params['match_threshold']
     show = params['show']
@@ -59,7 +66,7 @@ def perform_registration(source, target, params):
             'weights': superglue,
             'sinkhorn_iterations': sinkhorn_iterations,
             'match_threshold': match_threshold,
-        }       
+        }
     }
     model = sg.Matching(config).eval().to(device)
     model.superpoint.load_state_dict(tc.load(superpoint_weights_path))
@@ -115,10 +122,13 @@ def perform_registration(source, target, params):
         raise ValueError("Unsupported transform type (rigid or affine only).")
     return transform
 
-def ransac(source_points, target_points, num_iters=30, threshold=10.0, num_points=3, transform_type='affine', echo=True):
+
+def ransac(source_points, target_points, num_iters=30, threshold=10.0, num_points=3, transform_type='affine',
+           echo=True):
     indices = np.arange(len(source_points))
     if transform_type == "affine":
-        best_transform = u.calculate_affine_transform(u.points_to_homogeneous_representation(target_points), u.points_to_homogeneous_representation(source_points))
+        best_transform = u.calculate_affine_transform(u.points_to_homogeneous_representation(target_points),
+                                                      u.points_to_homogeneous_representation(source_points))
     elif transform_type == "rigid":
         best_transform = u.calculate_rigid_transform(target_points, source_points)
     else:
@@ -135,8 +145,9 @@ def ransac(source_points, target_points, num_iters=30, threshold=10.0, num_point
             transform = u.calculate_rigid_transform(current_tp, current_sp)
         else:
             raise ValueError("Unsupported transform type (rigid or affine only).")
-        transformed_target_points = (transform @ u.points_to_homogeneous_representation(target_points).swapaxes(1, 0)).swapaxes(0, 1)
-        error = ((u.points_to_homogeneous_representation(source_points) - transformed_target_points)**2).mean(axis=1)
+        transformed_target_points = (
+                    transform @ u.points_to_homogeneous_representation(target_points).swapaxes(1, 0)).swapaxes(0, 1)
+        error = ((u.points_to_homogeneous_representation(source_points) - transformed_target_points) ** 2).mean(axis=1)
         inliers = (error < threshold).sum()
         ratio = inliers / len(source_points)
         if ratio > best_ratio:

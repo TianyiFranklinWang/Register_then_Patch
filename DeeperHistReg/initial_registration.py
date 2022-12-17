@@ -1,9 +1,9 @@
 import sys
 current_file = sys.modules[__name__]
 
-import utils as u
+import DeeperHistReg.utils as u
 
-import rotated_landmark_based_combination as rlbc
+import DeeperHistReg.rotated_landmark_based_combination as rlbc
 
 ### Note ###
 # It is assumed that all algorithms in the initial_registration.py return 2x3 transformation matrix in the PyTorch format
