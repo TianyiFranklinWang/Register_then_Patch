@@ -47,7 +47,7 @@ def save_image(image, save_path, renormalize=True):
                 image = (image * 255)
             image = image.astype(np.uint8)
             image = PIL.Image.fromarray(image)
-            image.save(str(save_path))
+            image.save_registration(str(save_path))
         else:
             sitk.WriteImage(sitk.GetImageFromArray(image), str(save_path))
     elif image.shape[2] == 1:
