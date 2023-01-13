@@ -18,14 +18,14 @@ from DeeperHistReg.create_acrobat_submission import register_ones
 class Config:
     def __init__(self):
         self.register = True
-        self.registration_input_folder = "./input/acrobat_validation_pyramid_1_of_1_sorted"
-        self.registration_output_folder = "/media/npu-x/DataOne2T/acrobat_validation_pyramid_1_of_1_processed/registered"
+        self.registration_input_folder = "./input/acrobat_train_pyramid_sorted"
+        self.registration_output_folder = "/media/npu-x/DataOne2T/acrobat_train_pyramid_processed/registered"
         self.registration_down_sample_rate = 4
         self.save_registration = True
 
         self.patch = True
         self.patch_input_folder = self.registration_output_folder
-        self.patch_output_folder = "/media/npu-x/DataOne2T/acrobat_validation_pyramid_1_of_1_processed/patched"
+        self.patch_output_folder = "/media/npu-x/DataOne2T/acrobat_train_pyramid_processed/patched"
         self.patch_down_sample_rate = None
         self.patch_size = 256
         self.pad_value_wsi = 255
@@ -77,7 +77,7 @@ class MultiModalDataset:
 
     @staticmethod
     def get_modality(image_name):
-        return image_name.split('_')[1]
+        return image_name.split(".")[0].split('_')[1]
 
     def __len__(self):
         count = 0
