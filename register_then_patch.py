@@ -234,16 +234,21 @@ def register_protocol(config):
         gc.collect()
 
         for source_image_name in source_image_names:
-            print(f"                - Processing on {source_image_name}")
-            source_path = os.path.join(registration_dataset.root, image_id, source_image_name)
-            with mute_stdout(debug=config.debug):
-                warped_source = register_ones(target_path=target_path, source_path=source_path,
-                                              down_sample_rate=config.registration_down_sample_rate, device='cuda:0')
-            if config.save_registration:
-                tiff.imwrite(os.path.join(config.registration_output_folder, image_id, source_image_name),
-                             warped_source)
-            del warped_source
-            gc.collect()
+            print(f"                - Processing on {source_image_name}", end="")
+
+            if not os.path.exists(os.path.join(config.registration_output_folder, image_id, source_image_name)):
+                source_path = os.path.join(registration_dataset.root, image_id, source_image_name)
+                with mute_stdout(debug=config.debug):
+                    warped_source = register_ones(target_path=target_path, source_path=source_path,
+                                                  down_sample_rate=config.registration_down_sample_rate, device='cuda:0')
+                if config.save_registration:
+                    tiff.imwrite(os.path.join(config.registration_output_folder, image_id, source_image_name),
+                                 warped_source)
+                del warped_source
+                gc.collect()
+                print()
+            else:
+                print(" - skipped")
 
 
 def patch_protocol(config):
@@ -296,24 +301,28 @@ def patch_protocol(config):
         gc.collect()
 
         for source_image_name in source_image_names:
-            print(f"                - Processing on {source_image_name}")
+            print(f"                - Processing on {source_image_name}", end="")
             source_path = os.path.join(patch_dataset.root, image_id, source_image_name)
-            source_image = tiff.imread(source_path)
-            source_image = pad_wsi(source_image, config.patch_size, config.pad_value_wsi)
-            source_image_patches = gen_patch(source_image, config.patch_size)
+            if not os.path.exists(source_path):
+                source_image = tiff.imread(source_path)
+                source_image = pad_wsi(source_image, config.patch_size, config.pad_value_wsi)
+                source_image_patches = gen_patch(source_image, config.patch_size)
 
-            if config.save_patch:
-                for idx in selected_idx:
-                    coordinate = coordinates_dict[idx]
-                    save_patch_name = f"{image_id}_{coordinate[0]}_{coordinate[1]}.{config.save_format}"
-                    save_path = os.path.join(config.patch_output_folder, patch_dataset.get_modality(source_image_name),
-                                             save_patch_name)
-                    patch = source_image_patches[idx]
-                    patch = cv2.cvtColor(patch, cv2.COLOR_RGB2BGR)
-                    cv2.imwrite(save_path, patch)
-            del source_image
-            del source_image_patches
-            gc.collect()
+                if config.save_patch:
+                    for idx in selected_idx:
+                        coordinate = coordinates_dict[idx]
+                        save_patch_name = f"{image_id}_{coordinate[0]}_{coordinate[1]}.{config.save_format}"
+                        save_path = os.path.join(config.patch_output_folder, patch_dataset.get_modality(source_image_name),
+                                                 save_patch_name)
+                        patch = source_image_patches[idx]
+                        patch = cv2.cvtColor(patch, cv2.COLOR_RGB2BGR)
+                        cv2.imwrite(save_path, patch)
+                del source_image
+                del source_image_patches
+                gc.collect()
+                print()
+            else:
+                print(" - skipped")
 
 
 def main(config):
