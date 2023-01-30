@@ -33,12 +33,13 @@ class Config:
         self.area_threshold = 16384
         self.min_size = 16384
         self.connectivity = 8
-        self.save_format = 'png'
+        self.save_format = 'jpeg'
         self.save_patch = True
 
         self.target_image_modality = "HE"
 
         self.debug = False
+        self.oom_skip_list = "./oom_skipped.txt"
 
 
 @contextlib.contextmanager
@@ -224,27 +225,39 @@ def register_protocol(config):
 
         os.makedirs(os.path.join(config.registration_output_folder, image_id), exist_ok=True)
 
-        print(f"                - Processing on {target_image_name}")
+        print(f"                - Processing on {target_image_name}", end="")
+
         target_path = os.path.join(registration_dataset.root, image_id, target_image_name)
-        target_image = tiff.imread(target_path)
-        target_image = resize(target_image, scale_factor=config.registration_down_sample_rate)
-        if config.save_registration:
-            tiff.imwrite(os.path.join(config.registration_output_folder, image_id, target_image_name), target_image)
-        del target_image
-        gc.collect()
+        if not os.path.exists(os.path.join(config.registration_output_folder, image_id, target_image_name)):
+            target_image = tiff.imread(target_path)
+            target_image = resize(target_image, scale_factor=config.registration_down_sample_rate)
+            if config.save_registration:
+                tiff.imwrite(os.path.join(config.registration_output_folder, image_id, target_image_name), target_image,
+                             compression='jpeg')
+            del target_image
+            gc.collect()
+            print()
+        else:
+            print(" - sipped")
 
         for source_image_name in source_image_names:
             print(f"                - Processing on {source_image_name}", end="")
 
             if not os.path.exists(os.path.join(config.registration_output_folder, image_id, source_image_name)):
-                source_path = os.path.join(registration_dataset.root, image_id, source_image_name)
-                with mute_stdout(debug=config.debug):
-                    warped_source = register_ones(target_path=target_path, source_path=source_path,
-                                                  down_sample_rate=config.registration_down_sample_rate, device='cuda:0')
-                if config.save_registration:
-                    tiff.imwrite(os.path.join(config.registration_output_folder, image_id, source_image_name),
-                                 warped_source)
-                del warped_source
+                try:
+                    source_path = os.path.join(registration_dataset.root, image_id, source_image_name)
+                    with mute_stdout(debug=config.debug):
+                        warped_source = register_ones(target_path=target_path, source_path=source_path,
+                                                      down_sample_rate=config.registration_down_sample_rate,
+                                                      device='cuda:0')
+                    if config.save_registration:
+                        tiff.imwrite(os.path.join(config.registration_output_folder, image_id, source_image_name),
+                                     warped_source, compression='jpeg')
+                    del warped_source
+                except torch.cuda.OutOfMemoryError:
+                    print(" - skipped due to oom", end="")
+                    with open(config.oom_skip_list, 'a') as f:
+                        f.write(f"{source_image_name}\n")
                 gc.collect()
                 print()
             else:
@@ -312,7 +325,8 @@ def patch_protocol(config):
                     for idx in selected_idx:
                         coordinate = coordinates_dict[idx]
                         save_patch_name = f"{image_id}_{coordinate[0]}_{coordinate[1]}.{config.save_format}"
-                        save_path = os.path.join(config.patch_output_folder, patch_dataset.get_modality(source_image_name),
+                        save_path = os.path.join(config.patch_output_folder,
+                                                 patch_dataset.get_modality(source_image_name),
                                                  save_patch_name)
                         patch = source_image_patches[idx]
                         patch = cv2.cvtColor(patch, cv2.COLOR_RGB2BGR)
