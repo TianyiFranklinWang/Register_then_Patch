@@ -12,7 +12,7 @@ import skimage
 import tifffile as tiff
 import torch
 
-from DeeperHistReg.create_acrobat_submission import register_ones
+from DeeperHistReg.create_acrobat_submission import register_ones_no_downsample
 
 
 class Config:
@@ -230,7 +230,7 @@ def register_protocol(config):
         target_path = os.path.join(registration_dataset.root, image_id, target_image_name)
         if not os.path.exists(os.path.join(config.registration_output_folder, image_id, target_image_name)):
             target_image = tiff.imread(target_path)
-            target_image = resize(target_image, scale_factor=config.registration_down_sample_rate)
+            # target_image = resize(target_image, scale_factor=config.registration_down_sample_rate)
             if config.save_registration:
                 tiff.imwrite(os.path.join(config.registration_output_folder, image_id, target_image_name), target_image,
                              compression='jpeg')
@@ -238,7 +238,7 @@ def register_protocol(config):
             gc.collect()
             print()
         else:
-            print(" - sipped")
+            print(" - skipped")
 
         for source_image_name in source_image_names:
             print(f"                - Processing on {source_image_name}", end="")
@@ -247,9 +247,9 @@ def register_protocol(config):
                 try:
                     source_path = os.path.join(registration_dataset.root, image_id, source_image_name)
                     with mute_stdout(debug=config.debug):
-                        warped_source = register_ones(target_path=target_path, source_path=source_path,
-                                                      down_sample_rate=config.registration_down_sample_rate,
-                                                      device='cuda:0')
+                        warped_source = register_ones_no_downsample(target_path=target_path, source_path=source_path,
+                                                                    down_sample_rate=config.registration_down_sample_rate,
+                                                                    device='cuda:0')
                     if config.save_registration:
                         tiff.imwrite(os.path.join(config.registration_output_folder, image_id, source_image_name),
                                      warped_source, compression='jpeg')

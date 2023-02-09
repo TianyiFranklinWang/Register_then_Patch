@@ -1,5 +1,6 @@
 ### Python Imports ###
 import copy
+import gc
 import os
 import sys
 
@@ -274,6 +275,83 @@ def register_ones(target_path, source_path, down_sample_rate=4, device='cuda:0')
     ### Save Visual Results
     # warped_source = u.warp_image(pre_source, displacement_field)
     warped_source = u.warp_image(warped_source, displacement_field)
+
+    warped_source = warped_source[0, :, :, :].detach().cpu().permute(1, 2, 0).numpy()
+    if warped_source.shape[2] == 3:
+        warped_source = (warped_source * 255).astype(np.uint8)
+    elif warped_source.shape[2] == 1:
+        warped_source = (warped_source[:, :, 0] * 255)
+        warped_source = warped_source.astype(np.uint8)
+    else:
+        raise ValueError("Unsupported image format.")
+
+    tc.cuda.empty_cache()
+
+    return warped_source
+
+
+def register_ones_no_downsample(target_path, source_path, down_sample_rate=4, device='cuda:0'):
+    config = configs.affine_nonrigid_config()
+
+    level = config['level']
+    registration_method = getattr(sys.modules[__name__], config['registration_method'])
+    registration_params = config['registration_params']
+    preprocessing_params = config['preprocessing_params']
+
+    #############################
+
+    # Actual Registration
+
+    tc.cuda.empty_cache()
+    ### Load Images
+    print(f"Source path: {source_path}")
+    print(f"Target path: {target_path}")
+    source, source_slide = u.load_slide(source_path, level, load_slide=True)
+    target, target_slide = u.load_slide(target_path, level, load_slide=True)
+    print(f"Source dimensions: {source_slide.level_dimensions}")
+    print(f"Target dimensions: {target_slide.level_dimensions}")
+
+    orig_target_shape = target.shape[:2]
+
+    source = resize(source, scale_factor=down_sample_rate)
+    target = resize(target, scale_factor=down_sample_rate)
+    source = cv2.resize(source, (target.shape[1], target.shape[0]), fx=0, fy=0, interpolation=cv2.INTER_CUBIC)
+
+    source = u.image_to_tensor(source, device)
+    target = u.image_to_tensor(target, device)
+
+    ### Preprocessing
+    print(f"Original source shape: {source.shape}")
+    print(f"Original target shape: {target.shape}")
+    preprocessing_function = pre.get_function(preprocessing_params['preprocessing_function'])
+    pre_source, pre_target, _, _, postprocessing_params = preprocessing_function(source, target, None, None,
+                                                                                 preprocessing_params)
+    print(f"Preprocessed source shape: {pre_source.shape}")
+    print(f"Preprocessed target shape: {pre_target.shape}")
+
+    ### Perform Registration
+    displacement_field = registration_method(pre_source, pre_target, **registration_params)
+
+    del source, target, pre_source, pre_target
+    gc.collect()
+    source, source_slide = u.load_slide(source_path, level, load_slide=True)
+    source = cv2.resize(source, (orig_target_shape[1], orig_target_shape[0]), fx=0, fy=0, interpolation=cv2.INTER_CUBIC)
+    source = u.image_to_tensor(source, device='cpu')
+
+    displacement_field = displacement_field.detach().cpu().numpy().squeeze()
+    displacement_field_0 = cv2.resize(displacement_field[:, :, 0], (orig_target_shape[1], orig_target_shape[0]), fx=0,
+                                      fy=0, interpolation=cv2.INTER_CUBIC)
+    displacement_field_1 = cv2.resize(displacement_field[:, :, 1], (orig_target_shape[1], orig_target_shape[0]), fx=0,
+                                      fy=0, interpolation=cv2.INTER_CUBIC)
+    displacement_field_0 = np.expand_dims(displacement_field_0, axis=2)
+    displacement_field_1 = np.expand_dims(displacement_field_1, axis=2)
+    displacement_field = np.concatenate([displacement_field_0, displacement_field_1], axis=2)
+    displacement_field = np.expand_dims(displacement_field, axis=0)
+    displacement_field = torch.from_numpy(displacement_field)
+
+    ### Save Visual Results
+    # warped_source = u.warp_image(pre_source, displacement_field)
+    warped_source = u.warp_image(source, displacement_field)
 
     warped_source = warped_source[0, :, :, :].detach().cpu().permute(1, 2, 0).numpy()
     if warped_source.shape[2] == 3:
