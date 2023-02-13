@@ -17,7 +17,7 @@ from DeeperHistReg.create_acrobat_submission import register_ones_no_downsample
 
 class Config:
     def __init__(self):
-        self.register = True
+        self.register = False
         self.registration_input_folder = "./input/acrobat_train_pyramid_sorted"
         self.registration_output_folder = "/media/npu-x/DataOne2T/acrobat_train_pyramid_processed/registered"
         self.registration_down_sample_rate = 4
@@ -225,7 +225,7 @@ def register_protocol(config):
 
         os.makedirs(os.path.join(config.registration_output_folder, image_id), exist_ok=True)
 
-        print(f"                - Processing on {target_image_name}", end="")
+        print(f"                - Processing on {target_image_name}", end="", flush=True)
 
         target_path = os.path.join(registration_dataset.root, image_id, target_image_name)
         if not os.path.exists(os.path.join(config.registration_output_folder, image_id, target_image_name)):
@@ -236,12 +236,12 @@ def register_protocol(config):
                              compression='jpeg')
             del target_image
             gc.collect()
-            print()
+            print("")
         else:
             print(" - skipped")
 
         for source_image_name in source_image_names:
-            print(f"                - Processing on {source_image_name}", end="")
+            print(f"                - Processing on {source_image_name}", end="", flush=True)
 
             if not os.path.exists(os.path.join(config.registration_output_folder, image_id, source_image_name)):
                 try:
@@ -259,7 +259,7 @@ def register_protocol(config):
                     with open(config.oom_skip_list, 'a') as f:
                         f.write(f"{source_image_name}\n")
                 gc.collect()
-                print()
+                print("")
             else:
                 print(" - skipped")
 
@@ -315,9 +315,10 @@ def patch_protocol(config):
 
         for source_image_name in source_image_names:
             print(f"                - Processing on {source_image_name}", end="")
-            source_path = os.path.join(patch_dataset.root, image_id, source_image_name)
-            if not os.path.exists(source_path):
-                source_image = tiff.imread(source_path)
+            base_save_path = os.path.join(config.patch_output_folder, patch_dataset.get_modality(source_image_name))
+            save_id_list = set([image_name.split("_")[0] for image_name in os.listdir(base_save_path)])
+            if not source_image_name.split("_")[0] in save_id_list:
+                source_image = tiff.imread(os.path.join(patch_dataset.root, image_id, source_image_name))
                 source_image = pad_wsi(source_image, config.patch_size, config.pad_value_wsi)
                 source_image_patches = gen_patch(source_image, config.patch_size)
 
